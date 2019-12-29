@@ -12,25 +12,6 @@ ap.add_argument('-URL', '--link', required=False,
 args = vars(ap.parse_args())
 ## Import url
 URL = 'https://www.indeed.com/jobs?q=Data+Scientist&l=Texas&explvl=entry_level'
-'''https://www.indeed.com/jobs?q=Data+Scientist&l=Texas&explvl=entry_level
-https://www.indeed.com/jobs?q=Data+Scientist&l=Texas&explvl=entry_level&start=10
-https://www.indeed.com/jobs?q=Data+Scientist&l=Texas&explvl=entry_level&start=20'''
-# get the html page using the URL specified above
-
-page = requests.get(URL)
-
-# Specifying the desired format of 'page' using html parser.
-# This allows python to read various components of the page,
-# rather than treating it as one long string.
-
-soup = BeautifulSoup(page.text, 'html.parser')
-
-# Printing soup in a more structured tree format that makes for easier reading
-# print(soup.prettify())
-# Loop through tag to get all the job postings in a page
-posting_tag = "jobsearch-SerpJobCard unifiedRow row result clickcard"
-divs = soup.find_all('div', attrs={'data-tn-component': 'organicJob'})
-print(len(divs))  # 10 job postings per page
 
 
 def getJobInfo(divs):
@@ -58,14 +39,19 @@ def getJobInfo(divs):
             for name in sjcl.find_all('a', attrs={'data-tn-element': 'companyName'}):
                 names.append(name.text)
         # Get company locations
-        for locs in divs:
-            for loc in locs.find_all('span', attrs={'class': 'location accessible-contrast-color-location'}):
-                job_locations.append(loc.text)
+        for loc in div.find_all('span', attrs={'class': 'location accessible-contrast-color-location'}):
+            job_locations.append(loc.text)
         # Get the location of the job
+        jobs_loc = []
+        # for locs in divs:
+        #     for loc in locs.find_all('span', attrs={'class': 'location accessible-contrast-color-location'}):
+        #         # print(loc['data-rc-loc'])
+        #         # jobs_loc.append(loc['data-rc-loc'])
+        #         print(loc.text)
     return job_titles, summary_links, names, job_locations
 
 
-job_titless, summary_linkss, namess, locations = getJobInfo(divs)
+#job_titless, summary_linkss, namess, locations = getJobInfo(divs)
 
 
 ##
@@ -90,7 +76,7 @@ def get_jobdes(summary_links, base_web='https://www.indeed.com'):
     return summaries
 
 
-summaries = get_jobdes(summary_linkss)
+#summaries = get_jobdes(summary_linkss)
 # import re
 # re.sub(r"\[\n\n|\n\n|\n\n\]",' ', test)
 
@@ -109,17 +95,18 @@ if __name__ == '__main__':
         # Specifying the desired format of 'page' using html parser.
         # This allows python to read various components of the page,
         # rather than treating it as one long string.
+        print('[INFO] Getting information from the provided URL...')
         soup = BeautifulSoup(page.text, 'html.parser')
         # Get job information from job postings
         # Loop through tag to get all the job postings in a page
         posting_tag = "jobsearch-SerpJobCard unifiedRow row result clickcard"
         divs = soup.find_all('div', attrs={'data-tn-component': 'organicJob'})
+        print('[INFO] The number of job postings per page is:')
         print(len(divs))  # 10 job postings per page
 
         job_titles, summary_links, names, locations = getJobInfo(divs)
         summaries = get_jobdes(summary_links)
-
-        end = time.time()
+        print('[INFO] all information scrapped, preparing to write to a csv file ...')
         # Putting all information into a csv file
         job_postings = {'Company Name': names,
                         'Title': job_titles,
@@ -134,7 +121,9 @@ if __name__ == '__main__':
             Jobs.to_csv('Jobs.csv', header=True, index=None)
         else:
             print('[INFO] exit file without saving ...')
-            break
-        print(f'[INFO] The execution time is {(end - start) / 60} minutes')
+            pass
     except Exception as e:
+        print('Error occurs:')
         print(e)
+    end = time.time()
+    print(f'[INFO] The execution time is {(end - start) / 60} minutes')
