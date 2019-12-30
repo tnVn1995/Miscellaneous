@@ -45,13 +45,6 @@ def getJobInfo(divs):
         # Get company locations
         for loc in div.find_all('span', attrs={'class': 'location accessible-contrast-color-location'}):
             job_locations.append(loc.text)
-        # Get the location of the job
-        jobs_loc = []
-        # for locs in divs:
-        #     for loc in locs.find_all('span', attrs={'class': 'location accessible-contrast-color-location'}):
-        #         # print(loc['data-rc-loc'])
-        #         # jobs_loc.append(loc['data-rc-loc'])
-        #         print(loc.text)
     return job_titles, summary_links, names, job_locations
 
 
@@ -111,7 +104,6 @@ if __name__ == '__main__':
             print('[INFO] The number of job postings on this page is:')
             jobs_per_page = len(divs)
             print(len(divs))  # 10 job postings per page
-
             job_titles, summary_links, names, locations = getJobInfo(divs)
             summaries = get_jobdes(summary_links)
             print('[INFO] all information scrapped, preparing to write to a csv file ...')
@@ -136,9 +128,8 @@ if __name__ == '__main__':
                 # Loop through tag to get all the job postings in a page
                 posting_tag = "jobsearch-SerpJobCard unifiedRow row result clickcard"
                 divs = soup.find_all('div', attrs={'data-tn-component': 'organicJob'})
-                print('[INFO] The number of job postings per page is:')
+                print('[INFO] The number of job postings on this page is:')
                 print(len(divs))  # 10 job postings per page
-
                 job_titles, summary_links, names, locations = getJobInfo(divs)
                 summaries = get_jobdes(summary_links)
                 # print('[INFO] all information scrapped, preparing to write to a csv file ...')
