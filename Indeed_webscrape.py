@@ -9,7 +9,7 @@ import time
 ap = argparse.ArgumentParser()
 ap.add_argument('-URL', '--link', required=False,
                 help='a string or a list of strings that specify the links of the job posting')
-ap.add_argument('-no', '--page', require=False,
+ap.add_argument('-no', '--page', required=False,
                 help='The number of pages to scrape')
 ap.add_argument('-fi', '--file', required=False,
                 help='File to save info to')
@@ -88,6 +88,7 @@ def get_jobdes(summary_links, base_web='https://www.indeed.com'):
 if __name__ == '__main__':
     start = time.time()
     # Import url
+    # If a link was provided
     if args['link']:
         URL = args['link']
     else:
@@ -107,7 +108,7 @@ if __name__ == '__main__':
             # Loop through tag to get all the job postings in a page
             posting_tag = "jobsearch-SerpJobCard unifiedRow row result clickcard"
             divs = soup.find_all('div', attrs={'data-tn-component': 'organicJob'})
-            print('[INFO] The number of job postings per page is:')
+            print('[INFO] The number of job postings on this page is:')
             jobs_per_page = len(divs)
             print(len(divs))  # 10 job postings per page
 
@@ -120,15 +121,16 @@ if __name__ == '__main__':
                             'Job Location': locations,
                             'Job Description': summaries}
             Jobs = pd.DataFrame(job_postings)
-            iter +=1
+            iter += 1
             while 0 < iter <= int(args['page']):
-                URL_more = URL + '&start={}'.format(iter*jobs_per_page)
-                page = requests.get(URL)
+                URL_more = URL + '&start={}'.format(iter * jobs_per_page)
+                page = requests.get(URL_more)
 
                 # Specifying the desired format of 'page' using html parser.
                 # This allows python to read various components of the page,
                 # rather than treating it as one long string.
-                print(f'[INFO] Getting information from the provided URL starting at {iter*jobs_per_page} job posting...')
+                print(
+                    f'[INFO] Getting information from the provided URL starting at {iter * jobs_per_page} job posting...')
                 soup = BeautifulSoup(page.text, 'html.parser')
                 # Get job information from job postings
                 # Loop through tag to get all the job postings in a page
@@ -146,7 +148,8 @@ if __name__ == '__main__':
                                 'Job Location': locations,
                                 'Job Description': summaries}
                 Jobss = pd.DataFrame(job_postings)
-                Jobs = pd.concat([Jobs,Jobss], ignore_index=True)
+                Jobs = pd.concat([Jobs, Jobss], ignore_index=True)
+                iter += 1
         except Exception as e:
             print('Error occurs:')
             print(e)
@@ -195,7 +198,7 @@ if __name__ == '__main__':
             input = input.lower()
             if input == 'y' or 'yes':
                 if args['file']:
-                    Jobs.to_csv('{}.csv'.format(args['file']), header = True, index = None)
+                    Jobs.to_csv('{}.csv'.format(args['file']), header=True, index=None)
                 else:
                     Jobs.to_csv('Jobs.csv', header=True, index=None)
             else:
