@@ -38,14 +38,14 @@ JobInfo = []
 URL = 'https://www.indeed.com/jobs?q=Data+Scientist&l=Texas&explvl=entry_level'
 if start_page is not None and end_page is not None:
     for page in range(start_page, end_page):
-        URL_more = URL + '&start={}'.format(page*no_jobs)
+        URL_more = URL + '&start={}'.format(page * no_jobs)
         page = requests.get(URL_more)
         print('[INFO] Getting information from the provided URL...')
         soup = BeautifulSoup(page.text, 'html.parser')
         print('[INFO] Done requesting information.')
         # Get job information from job postings
         # Loop through tag to get all the job postings in a page
-        print('[INFO] Starting to scrape information ...')
+        print('[INFO] Starting to scrape information from job postings...')
         posting_tag = "jobsearch-SerpJobCard unifiedRow row result clickcard"
         divs = soup.find_all('div', attrs={'data-tn-component': 'organicJob'})
         print('[INFO] The number of job postings is:')
@@ -95,8 +95,10 @@ end_page = 10  # one input argument
 JobInfo = []
 URL = 'https://www.indeed.com/jobs?q=Data+Scientist&l=Texas&explvl=entry_level'
 if start_page is not None and end_page is not None:
+    URLs = [URL + '&start={}'.format(page * no_jobs) for page in range(start_page, end_page)]
     for page in range(start_page, end_page):
-        URL_more = URL + '&start={}'.format(page*no_jobs)
+    def scrapeInfo(URL: str) -> :
+        URL_more = URL + '&start={}'.format(page * no_jobs)
         page = requests.get(URL_more)
         print('[INFO] Getting information from the provided URL...')
         soup = BeautifulSoup(page.text, 'html.parser')
@@ -109,13 +111,9 @@ if start_page is not None and end_page is not None:
         print('[INFO] The number of job postings is:')
         no_jobss = len(divs)
         print(len(divs))
-        threads = [MyThread(div) for div in divs]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-        for thread in threads:
-            JobInfo.append(thread.result)
+        for div in divs:
+            temp_info = getInfo(div)
+            JobInfo.append(temp_info)
         no_jobs = no_jobss
 data = pd.DataFrame(JobInfo)
 print('The shape of the data collected is:')
