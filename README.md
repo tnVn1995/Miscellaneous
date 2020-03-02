@@ -1,2 +1,2 @@
 # IndeedWebScrape
-Scraping Job Information from Indeed
+Scraping Job Information from Indeed using BeautifulSoup

@@ -127,6 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
 # Ignore folders
 python-scraping/
 tutorial/
+
+#Documents
+.idea/
+
