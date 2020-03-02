@@ -7,8 +7,10 @@ from bs4 import BeautifulSoup
 import argparse
 import pandas as pd
 import time
-from typing import Callable, List, Tuple, Dict
-def getInfo(div: List) -> Dict:
+from typing import Callable, List, Tuple, Dict, TypeVar
+
+
+def getInfo(div: BeautifulSoup) -> Dict:
     '''Take input as a bs4 tag and return a dict with information about
     a job posting
     Input

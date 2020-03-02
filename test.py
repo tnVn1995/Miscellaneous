@@ -1,28 +1,80 @@
-# URL_more = URL + '&start={}'.format(iter * jobs_per_page)
-URL_more = 'https://www.indeed.com/jobs?q=Data+Scientist&l=Texas&explvl=entry_level&start=20'
-page = requests.get(URL_more)
+import requests
+from bs4 import BeautifulSoup
 
-# Specifying the desired format of 'page' using html parser.
-# This allows python to read various components of the page,
-# rather than treating it as one long string.
-print(f'[INFO] Getting information from the provided URL starting at {iter * jobs_per_page} job posting...')
-soup = BeautifulSoup(page.text, 'html.parser')
-# Get job information from job postings
-# Loop through tag to get all the job postings in a page
-posting_tag = "jobsearch-SerpJobCard unifiedRow row result clickcard"
-divs = soup.find_all('div', attrs={'data-tn-component': 'organicJob'})
-print('[INFO] The number of job postings on this page is:')
-print(len(divs))  # 10 job postings per page
-job_titles, summary_links, names, locations = getJobInfo(divs)
-print(len(job_titles), len(summary_links), len(names), len(locations))
-summaries = get_jobdes(summary_links)
-print(len(summaries))
-# print('[INFO] all information scrapped, preparing to write to a csv file ...')
-# Putting all information into a csv file
-job_postings = {'Company Name': names,
-                'Title': job_titles,
-                'Job Location': locations,
-                'Job Description': summaries}
-Jobss = pd.DataFrame(job_postings)
-Jobs = pd.concat([Jobs, Jobss], ignore_index=True)
-iter += 1
+class Content:
+    """
+    Common base class for all articles/pages
+    """
+    def __init__(self, url, title, body):
+        self.url = url
+        self.title = title
+        self.body = body
+
+    def print(self):
+        """
+        Flexible printing function controls output
+        """
+        print('URL: {}'.format(self.url))
+        print('TITLE: {}'.format(self.title))
+        print('BODY:\n{}'.format(self.body))
+
+class Website:
+    """ 
+    Contains information about website structure
+    """
+    def __init__(self, name, url, titleTag, bodyTag):
+        self.name = name
+        self.url = url
+        self.titleTag = titleTag
+        self.bodyTag = bodyTag
+
+class Crawler:
+    def getPage(self, url):
+        try:
+            req = requests.get(url)
+        except requests.exceptions.RequestException as e:
+            print(e)
+            return None
+        return BeautifulSoup(req.text, 'html.parser')
+
+    def safeGet(self, pageObj, selector):
+        """
+        Utility function used to get a content string from a
+​    ​    Beautiful Soup object and a selector. Returns an empty
+​    ​    string if no object is found for the given selector
+        """
+        selectedElems = pageObj.select(selector)
+        if selectedElems is not None and len(selectedElems) > 0:
+            return '\n'.join([elem.get_text() for elem in selectedElems])
+        return ''
+
+    def parse(self, site, url):
+        """
+        Extract content from a given page URL
+        """
+        bs = self.getPage(url)
+        if bs is not None:
+            title = self.safeGet(bs, site.titleTag)
+            body = self.safeGet(bs, site.bodyTag)
+            if title != '' and body != '':
+                content = Content(url, title, body)
+                content.print()
+
+siteData = [
+    ['O\'Reilly Media', 'http://oreilly.com', 'h1', 'section#product-description'],
+    ['Reuters', 'http://reuters.com', 'h1', 'div.StandardArticleBody_body_1gnLA'],
+    ['Brookings', 'http://www.brookings.edu', 'h1', 'div.post-body'],
+    ['New York Times', 'http://nytimes.com', 'h1', 'div.StoryBodyCompanionColumn div p']
+]
+websites = []
+for row in siteData:
+    websites.append(Website(row[0], row[1], row[2], row[3]))
+
+
+crawler.parse(websites[0], 'http://shop.oreilly.com/product/0636920028154.do')
+crawler.parse(websites[1], 'http://www.reuters.com/article/us-usa-epa-pruitt-idUSKBN19W2D0')
+crawler.parse(websites[2], 'https://www.brookings.edu/blog/techtank/2016/03/01/idea-to-retire-old-methods-of-policy-education/')
+crawler.parse(websites[3], 'https://www.nytimes.com/2018/01/28/business/energy-environment/oil-boom.html')
+
+
+

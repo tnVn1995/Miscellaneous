@@ -1,10 +1,14 @@
-##
+#%% Indeed Web Crawler
 import requests
 import bs4
 from bs4 import BeautifulSoup
 import argparse
 import pandas as pd
 import time
+from typing import List
+import pymysql
+
+password = '22147565Ll'
 
 ap = argparse.ArgumentParser()
 ap.add_argument('-URL', '--link', required=True,
@@ -18,7 +22,7 @@ args = vars(ap.parse_args())
 #URL = 'https://www.indeed.com/jobs?q=Data+Scientist&l=Texas&explvl=entry_level'
 
 
-def getJobInfo(divs):
+def getJobInfo(divs: BeautifulSoup) -> (str, str, str, str):
     """Get job titles, locations, summary links, and companies' names from indeed job postings
     Input
     -----
@@ -52,7 +56,7 @@ def getJobInfo(divs):
 
 ##
 # Job Summary link
-def get_jobdes(summary_links, base_web='https://www.indeed.com'):
+def get_jobdes(summary_links: str, base_web='https://www.indeed.com') -> List[str]:
     """Get job descriptions from Indeed
     Input:
     -----
@@ -63,149 +67,108 @@ def get_jobdes(summary_links, base_web='https://www.indeed.com'):
     -----
         Return a list-like of jobdescriptions for each link provided"""
     summaries = []
-    for tail in summary_links:
-        link = base_web + tail
-        page = requests.get(link)
-        soup = BeautifulSoup(page.text, 'html.parser')
-        div = soup.find_all('div', attrs={'id': 'jobDescriptionText'})
-        summaries.append(div[0].text)
+    try:
+        for tail in summary_links:
+            link = base_web + tail
+            page = requests.get(link)
+            soup = BeautifulSoup(page.text, 'html.parser')
+            div = soup.find_all('div', attrs={'id': 'jobDescriptionText'})
+            summaries.append(div[0].text)
+    except IndexError:
+        print('Here\'s what div looks like\n:', div)
     return summaries
 
 
-# summaries = get_jobdes(summary_linkss)
-# import re
-# re.sub(r"\[\n\n|\n\n|\n\n\]",' ', test)
+def getJobPost(URL: str='http://www.indeed.com/jobs?', queries: dict=None) -> BeautifulSoup:
+    try:
+        page = requests.get(URL, params=queries)
+    except Exception as e:
+        print(e)
+    else:
+        if page == None:
+            print('Not found page')
+        else:
+            soup = BeautifulSoup(page.text, 'html.parser')
+    divs = soup.find_all(name='div', attrs={'data-tn-component': 'organicJob'})
+    return divs
 
-## Execute Web Scraping
-if __name__ == '__main__':
+#%% RDB
+
+def createdb():
+    conn = pymysql.connect(host='localhost',
+                    user='root',
+                    password=password)
+    with conn.cursor() as cur:
+        cur.execute('CREATE DATABASE IF NOT EXISTS mydatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci')
+        cur.execute('''CREATE TABLE IF NOT EXISTS job_hunting (id BIGINT(7) NOT NULL AUTO_INCREMENT, job_title VARCHAR(200),
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, company_name VARCHAR(200) NULL, 
+    URL VARCHAR(500) NULL, location VARCHAR(200) NULL, status VARCHAR(100) NULL, applied BOOLEAN NOT NULL DEFAULT 0, PRIMARY KEY(id)) 
+    CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;''')
+    conn.commit()
+    conn.close()
+
+def store(values_to_insert: List[str]):
+    conn = pymysql.connect(host='localhost',
+                    user='root',
+                    password=password)
+    query = '''INSERT INTO job_hunting (job_title, company_name, URL, location) 
+    VALUES''' + ",".join("(%s, %s, %s, %s)" for _ in values_to_insert)
+    flattened_values = [item for sublist in values_to_insert for item in sublist]
+    with conn.cursor() as cur:
+        cur.execute('USE scraping')
+        cur.execute(query, flattened_values)
+    conn.commit()
+    conn.close()
+
+def reset_table(table: str= 'job_hunting'):
+    query = f'''TRUNCATE TABLE {table}'''
+    conn = pymysql.connect(host='localhost',
+                    user='root',
+                    password=password)
+    with conn.cursor() as cur:
+        cur.execute('USE scraping')
+        cur.execute(query)
+    conn.close()
+reset_table()
+
+def select(statement: str= '''SELECT URL FROM job_hunting''') -> str:
+    conn = pymysql.connect(host='localhost',
+                        user='root',
+                        password=password)
+    with conn.cursor() as cur:
+        cur.execute('USE scraping')
+        cur.execute(statement)
+        print(cur.fetchall())
+    conn.close()
+
+#%%
+def main():
     start = time.time()
-    URL = args['link']
+    # TODO: Get a list of cities, job_titles for thorough job search on Indeed
+    params = {'q': 'data scientist', 'l': 'Houston, TX',
+    'explvl': 'entry_level', 
+    'jt':'fulltime','start': 0}
+    if args['link']:
+        URL = args['link']
+        divs = getJobPost(URL, queries= params)
+    else:
+        divs = getJobPost(queries= params)
+    #* Get info from job_postings from Indeed.com
+    job_titles, summary_linkss, names, locations = getJobInfo(divs)
+        # TODO: Get job_descriptions later for NLP project
+        # TODO: summaries = get_jobdes(summary_linkss)
 
-    job_titless, summary_linkss, namess, locations = getJobInfo(divs)
-    summaries = get_jobdes(summary_linkss)
+    #* Insert data into database
+    base = 'https://www.indeed.com/'
+    values_to_insert = [(job_title, company_name, base + URL, location) for job_title, company_name, URL, location in
+    zip(job_titles, names, summary_linkss, locations)]
+    store(values_to_insert)
     end = time.time()
     print(f'[INFO] The execution time is {(end - start) / 60} minutes')
-    # Import url
-    # If a link was provided
-    # if args['link']:
-    #     URL = args['link']
-    # else:
-    #     URL = 'https://www.indeed.com/jobs?q=Data+Scientist&l=Texas&explvl=entry_level'
-    # # get the html page using the URL specified above
-    # if args['page']:
-    #     try:
-    #         iter = 0
-    #         page = requests.get(URL)
-    #
-    #         # Specifying the desired format of 'page' using html parser.
-    #         # This allows python to read various components of the page,
-    #         # rather than treating it as one long string.
-    #         print('[INFO] Getting information from the provided URL...')
-    #         soup = BeautifulSoup(page.text, 'html.parser')
-    #         # Get job information from job postings
-    #         # Loop through tag to get all the job postings in a page
-    #         posting_tag = "jobsearch-SerpJobCard unifiedRow row result clickcard"
-    #         divs = soup.find_all('div', attrs={'data-tn-component': 'organicJob'})
-    #         print('[INFO] The number of job postings on this page is:')
-    #         jobs_per_page = len(divs)
-    #         print(len(divs))  # 10 job postings per page
-    #         job_titles, summary_links, names, locations = getJobInfo(divs)
-    #         summaries = get_jobdes(summary_links)
-    #         print('[INFO] all information scrapped, preparing to write to a csv file ...')
-    #         # Putting all information into a csv file
-    #         job_postings = {'Company Name': names,
-    #                         'Title': job_titles,
-    #                         'Job Location': locations,
-    #                         'Job Description': summaries}
-    #         Jobs = pd.DataFrame(job_postings)
-    #         iter += 1
-    #         while 0 < iter <= int(args['page']):
-    #             URL_more = URL + '&start={}'.format(iter * jobs_per_page)
-    #             page = requests.get(URL_more)
-    #
-    #             # Specifying the desired format of 'page' using html parser.
-    #             # This allows python to read various components of the page,
-    #             # rather than treating it as one long string.
-    #             print(
-    #                 f'[INFO] Getting information from the provided URL starting at {iter * jobs_per_page} job posting...')
-    #             soup = BeautifulSoup(page.text, 'html.parser')
-    #             # Get job information from job postings
-    #             # Loop through tag to get all the job postings in a page
-    #             posting_tag = "jobsearch-SerpJobCard unifiedRow row result clickcard"
-    #             divs = soup.find_all('div', attrs={'data-tn-component': 'organicJob'})
-    #             print('[INFO] The number of job postings on this page is:')
-    #             print(len(divs))  # 10 job postings per page
-    #             job_titles, summary_links, names, locations = getJobInfo(divs)
-    #             print('[INFO] The number of job post info is:')
-    #             print(len(job_titles), len(summary_links), len(names), len(locations))
-    #             print('[INFO] The number of summaries is:')
-    #             summaries = get_jobdes(summary_links)
-    #             print(len(summaries))
-    #             # print('[INFO] all information scrapped, preparing to write to a csv file ...')
-    #             # Putting all information into a csv file
-    #             job_postings = {'Company Name': names,
-    #                             'Title': job_titles,
-    #                             'Job Location': locations,
-    #                             'Job Description': summaries}
-    #             Jobss = pd.DataFrame(job_postings)
-    #             Jobs = pd.concat([Jobs, Jobss], ignore_index=True)
-    #             iter += 1
-    #     except Exception as e:
-    #         print('Error occurs:')
-    #         print(e)
-    #         print(URL_more)
-    #
-    #     print('[INFO] Here\'s the first five jobs')
-    #     print(Jobs.head())
-    #     print('[INFO] The number of job postings is:', Jobs.shape[0])
-    #     input = input('Do you want to continue?')
-    #     input = input.lower()
-    #     if input == 'y' or 'yes':
-    #         if args['file']:
-    #             Jobs.to_csv('{}.csv'.format(args['file']), header=True, index=None)
-    #         else:
-    #             Jobs.to_csv('Jobs.csv', header=True, index=None)
-    #     else:
-    #         print('[INFO] exit file without saving ...')
-    #         pass
-    # else:
-    #     try:
-    #         page = requests.get(URL)
-    #
-    #         # Specifying the desired format of 'page' using html parser.
-    #         # This allows python to read various components of the page,
-    #         # rather than treating it as one long string.
-    #         print('[INFO] Getting information from the provided URL...')
-    #         soup = BeautifulSoup(page.text, 'html.parser')
-    #         # Get job information from job postings
-    #         # Loop through tag to get all the job postings in a page
-    #         posting_tag = "jobsearch-SerpJobCard unifiedRow row result clickcard"
-    #         divs = soup.find_all('div', attrs={'data-tn-component': 'organicJob'})
-    #         print('[INFO] The number of job postings per page is:')
-    #         print(len(divs))  # 10 job postings per page
-    #
-    #         job_titles, summary_links, names, locations = getJobInfo(divs)
-    #         summaries = get_jobdes(summary_links)
-    #         print('[INFO] all information scrapped, preparing to write to a csv file ...')
-    #         # Putting all information into a csv file
-    #         job_postings = {'Company Name': names,
-    #                         'Title': job_titles,
-    #                         'Job Location': locations,
-    #                         'Job Description': summaries}
-    #         Jobs = pd.DataFrame(job_postings)
-    #         print('[INFO] Here\'s the first five job')
-    #         print(Jobs.head())
-    #         input = input('Do you want to continue?')
-    #         input = input.lower()
-    #         if input == 'y' or 'yes':
-    #             if args['file']:
-    #                 Jobs.to_csv('{}.csv'.format(args['file']), header=True, index=None)
-    #             else:
-    #                 Jobs.to_csv('Jobs.csv', header=True, index=None)
-    #         else:
-    #             print('[INFO] exit file without saving ...')
-    #             pass
-    #     except Exception as e:
-    #         print('Error occurs:')
-    #         print(e)
+## Execute Web Scraping
+if __name__ == '__main__':
+    main()
+ 
+
+#%%
 
