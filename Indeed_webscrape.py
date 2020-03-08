@@ -5,10 +5,9 @@ from bs4 import BeautifulSoup
 import argparse
 import pandas as pd
 import time
-from typing import List
+from typing import List, Tuple
 import pymysql
-
-password = '22147565Ll'
+#%%
 
 ap = argparse.ArgumentParser()
 ap.add_argument('-URL', '--link', required=True,
@@ -21,7 +20,7 @@ args = vars(ap.parse_args())
 ## Import url
 #URL = 'https://www.indeed.com/jobs?q=Data+Scientist&l=Texas&explvl=entry_level'
 
-
+#%%
 def getJobInfo(divs: BeautifulSoup) -> (str, str, str, str):
     """Get job titles, locations, summary links, and companies' names from indeed job postings
     Input
@@ -80,6 +79,16 @@ def get_jobdes(summary_links: str, base_web='https://www.indeed.com') -> List[st
 
 
 def getJobPost(URL: str='http://www.indeed.com/jobs?', queries: dict=None) -> BeautifulSoup:
+    """[Get list of job postings from indeed]
+    
+    Keyword Arguments:
+        URL {str} -- [Can be modified to scrape from other sites] 
+        (default: {'http://www.indeed.com/jobs?'})
+        queries {dict} -- [queries to scrape] (default: {None})
+    
+    Returns:
+        BeautifulSoup -- [description]
+    """    
     try:
         page = requests.get(URL, params=queries)
     except Exception as e:
@@ -92,34 +101,73 @@ def getJobPost(URL: str='http://www.indeed.com/jobs?', queries: dict=None) -> Be
     divs = soup.find_all(name='div', attrs={'data-tn-component': 'organicJob'})
     return divs
 
+
 #%% RDB
 
-def createdb():
+def execute(statement: str, db: str='scraping', create=False, password = '22147565Ll'):
     conn = pymysql.connect(host='localhost',
                     user='root',
                     password=password)
     with conn.cursor() as cur:
-        cur.execute('CREATE DATABASE IF NOT EXISTS mydatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci')
-        cur.execute('''CREATE TABLE IF NOT EXISTS job_hunting (id BIGINT(7) NOT NULL AUTO_INCREMENT, job_title VARCHAR(200),
-    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, company_name VARCHAR(200) NULL, 
-    URL VARCHAR(500) NULL, location VARCHAR(200) NULL, status VARCHAR(100) NULL, applied BOOLEAN NOT NULL DEFAULT 0, PRIMARY KEY(id)) 
-    CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;''')
+            cur.execute(f'CREATE DATABASE IF NOT EXISTS {db}')
+            cur.execute(f'USE {db}')
+            cur.execute('CREATE TABLE IF NOT EXISTS test')
+            cur.execute('CREATE TABLE IF NOT EXISTS test1')
     conn.commit()
     conn.close()
+    return db
+db = 'scraping'
+conn = pymysql.connect(host='localhost',
+                user='root',
+                password=password)
+with conn.cursor() as cur:
+        cur.execute(f'CREATE DATABASE IF NOT EXISTS {db};')
+        cur.execute(f'USE {db};')
+        cur.execute('CREATE TABLE IF NOT EXISTS test (lol SMALLINT);')
+        cur.execute('CREATE TABLE IF NOT EXISTS test1 (lol1 SMALLINT);')
+        cur.execute('SHOW tables;')
+        print(cur.fetchall())
+conn.commit()
+conn.close()
 
-def store(values_to_insert: List[str]):
+#%%
+
+divs = getJobPost(queries= params)
+#* Get info from job_postings from Indeed.com
+job_titles, summary_links, company_names, locations = getJobInfo(divs)
+# TODO: Get job_descriptions later for NLP project
+summaries = get_jobdes(summary_links)
+
+values_to_insert = [job_titles, summary_links, company_names, locations, summary_links]
+def store(values_to_insert: List[str], password='22147565Ll^'):
     conn = pymysql.connect(host='localhost',
                     user='root',
                     password=password)
-    query = '''INSERT INTO job_hunting (job_title, company_name, URL, location) 
-    VALUES''' + ",".join("(%s, %s, %s, %s)" for _ in values_to_insert)
-    flattened_values = [item for sublist in values_to_insert for item in sublist]
+
+    job_titles, summary_links, company_names, locations, summaries = values_to_insert              
+    # query = '''INSERT INTO job_hunting (job_title, company_name, URL, location) 
+    # VALUES''' + ",".join("(%s, %s, %s, %s)" for _ in values_to_insert)
+    # flattened_values = [item for sublist in values_to_insert for item in sublist]
     with conn.cursor() as cur:
+        for job_title, summary_link, company_name, location, job_description in zip(job_titles, summary_links, company_names, locations, summaries):
+            city, state = location.split(',')
+            statement = f'''BEGIN;
+    INSERT INTO job_hunting1 (company_name, city, job_title, createdDate, state, url)
+    VALUES({company_name}, {city}, {job_title}, curdate(), {state}, {summary_link});
+    INSERT INTO job_status (company_id) 
+    VALUES(LAST_INSERT_ID());
+    INSERT INTO job_desc (company_id, job_description)
+    Values(LAST_INSERT_ID(), {job_description})
+    COMMIT;'''  
         cur.execute('USE scraping')
-        cur.execute(query, flattened_values)
+        cur.execute(statement)
     conn.commit()
     conn.close()
 
+store(values_to_insert)
+
+
+#%%
 def reset_table(table: str= 'job_hunting'):
     query = f'''TRUNCATE TABLE {table}'''
     conn = pymysql.connect(host='localhost',
@@ -130,21 +178,75 @@ def reset_table(table: str= 'job_hunting'):
         cur.execute(query)
     conn.close()
 reset_table()
-
-def select(statement: str= '''SELECT URL FROM job_hunting''') -> str:
+#%% SELECT and siplay info from table in pandas Dataframe
+def selectTable(items: str = '*', table: str = 'job_hunting1', db: str = 'scraping',
+password: str = '22147565Ll') -> str:
+    """    [Select items from table in mysql scraping db]
+    
+    Keyword Arguments:
+        items {str} -- [items to get from table] (default: {'*'})
+        table {str} -- [name of the table] (default: {'job_hunting1'})
+        db {str} -- [name of the database] (default: {'scraping'})
+        password {str} -- [password of the user] (default: {'22147565Ll^'})
+    Returns:
+        str -- [table of info]
+    """    
     conn = pymysql.connect(host='localhost',
                         user='root',
                         password=password)
+    statement = f'''SELECT {items} FROM {table}'''
     with conn.cursor() as cur:
-        cur.execute('USE scraping')
+        cur.execute(f'USE {db}')
         cur.execute(statement)
-        print(cur.fetchall())
+        result = cur.fetchall()
     conn.close()
+    return result
+
+def displaySelect():
+    job_status = 'job_status'
+    job_desc = 'job_desc'
+    desc = selectTable(table=job_desc)
+    status = selectTable(table=job_status)
+    hunting = selectTable()
+    result = [desc, status, hunting]
+    job_hunting_columns = ['company_id', 'company_name','createdDate','city','state','url']
+    job_status_columns = ['company_id','status','createdDate']
+    job_desc_columns = ['company_id','job_description','createdDate']
+    # Slect job_desc
+    try:
+        job_hunting1 = pd.DataFrame(list(result[2]), columns=job_hunting_columns)
+        job_status = pd.DataFrame(list(result[1]), columns=job_status_columns)
+        job_des = pd.DataFrame(list(result[0]), columns=job_desc_columns)
+    except Exception as e:
+        print(e)
+    return job_hunting1, job_status, job_des
+
+
+job_hunting1, job_status, job_desc = displaySelect()
+
+print(job_hunting1)
+print(job_status)
+print(job_desc)
+
+#%%
+from sqlalchemy import create_engine
+import pymysql
+import pandas as pd
+# db_connection_str = 'mysql+pymysql://<root@127.0.0.1:22147565Ll^@localhost/scraping'
+# db_connection = create_engine(db_connection_str)
+import mysql.connector
+cnx = mysql.connector.connect(user='root', password='22147565Ll^', host='127.0.0.1', database='scraping', port=3306)
+df = pd.read_sql('SELECT * FROM job_hunting1', con=cnx)
 
 #%%
 def main():
     start = time.time()
     # TODO: Get a list of cities, job_titles for thorough job search on Indeed
+    locations = ['Houston, TX', 'Dallas, TX', 'Dallas-Fort Worth, TX', 'San Francisco, CA',
+    'New York, NY', 'Philadelphia, PA', 'Pittsburgh, PA', 'Boston, MA', 'Washington, DC', 
+    ]
+
+    titles = ['data scientist', 'data analyst', 'machine learning engineer']
     params = {'q': 'data scientist', 'l': 'Houston, TX',
     'explvl': 'entry_level', 
     'jt':'fulltime','start': 0}
