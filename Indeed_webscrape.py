@@ -6,7 +6,6 @@ import argparse
 import pandas as pd
 import time
 from typing import List, Tuple
-import pymysql
 #%%
 
 ap = argparse.ArgumentParser()
