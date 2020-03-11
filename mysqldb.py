@@ -47,15 +47,15 @@ TABLES['job_status'] = f'''CREATE TABLE IF NOT EXISTS job_status(
 
 # %% Create tables into database
 
-DB_NAME = 'scraping'
-cnx = mysql.connector.connect(
-    host='localhost',
-    user='root',
-    passwd='22147565Ll^',
-    database='scraping',
-)
-
-cursor = cnx.cursor()
+# DB_NAME = 'scraping'
+# cnx = mysql.connector.connect(
+#     host='localhost',
+#     user='root',
+#     passwd='22147565Ll^',
+#     database='scraping',
+# )
+#
+# cursor = cnx.cursor()
 
 def create_database(cursor: mysql.connector.cursor.MySQLCursor):
     try:
@@ -91,19 +91,16 @@ def create_table(cursor: mysql.connector.cursor.MySQLCursor):
         else:
             print('OK')
 
-    cursor.close()
-    cnx.close()
+
 
 def reset_tables(cursor: mysql.connector.cursor.MySQLCursor):
     cursor.execute('DROP TABLE IF EXISTS job_desc;')
     cursor.execute('DROP TABLE IF EXISTS job_status;')
     cursor.execute('DROP TABLE IF EXISTS job_hunting;')
     create_table(cursor=cursor)
-    cursor.close()
-    cnx.close()
 
 # create_table(cursor=cursor)
-reset_tables(cursor=cursor)
+# reset_tables(cursor=cursor)
 
 # %% Scraping Webs
 
@@ -122,18 +119,18 @@ def webscrape(params: dict) -> List[List[str]]:
     return values_to_insert
 
 
-values_to_insert = webscrape(params=params)
+# values_to_insert = webscrape(params=params)
 # %% Insert Values
 
-DB_NAME = 'scraping'
-cnx = mysql.connector.connect(
-    host='localhost',
-    user='root',
-    passwd='22147565Ll^',
-    database='scraping',
-)
+# DB_NAME = 'scraping'
+# cnx = mysql.connector.connect(
+#     host='localhost',
+#     user='root',
+#     passwd='22147565Ll^',
+#     database='scraping',
+# )
 
-def insert_values(values_to_insert: List[List[str]], cnx: mysql.connector.connect = cnx):
+def insert_values(values_to_insert: List[List[str]], cnx: mysql.connector.connect):
     cursor = cnx.cursor()
     cursor.execute('USE scraping')
     job_titles, summary_links, company_names, locations, summaries = values_to_insert
@@ -159,17 +156,23 @@ def insert_values(values_to_insert: List[List[str]], cnx: mysql.connector.connec
         track2 = {'id': id, 'job_desc': job_description, 'createdDate': datetime.now().date()}
         cursor.execute(statement3, track2)
         cnx.commit()
-    cursor.close
-    cnx.close()
 
 
-insert_values(values_to_insert=values_to_insert)
+
+# insert_values(values_to_insert=values_to_insert)
 
 # %% Query values as dataframe
 
 cnx = mysql.connector.connect(user='root', password='22147565Ll^', host='127.0.0.1', database='scraping', port=3306)
-df = pd.read_sql('SELECT * FROM job_hunting', con=cnx)
-df.head()
+cursor = cnx.cursor()
+job_hunting = pd.read_sql('SELECT * FROM job_hunting', con=cnx)
+job_desc = pd.read_sql('SELECT * FROM job_desc', con=cnx)
+display(job_hunting.head())
+print('==='*30)
+display(job_desc.head())
+tables = list(cursor.execute('SHOW TABLES;'))
+cursor.close()
+cnx.close()
 
 # %% Save values to a txt file for later test
 with open('values_to_insert.txt', 'wb') as file:
@@ -183,10 +186,53 @@ with open('values_to_insert.txt', 'rb') as file:
         values_to_insert.append(currentPlace)
 
 #%%
-if __name__ == '__main__':
-    reset_tables(cursor=cursor)
-    params = {'q': 'data scientist', 'l': 'Houston, TX',
-              'explvl': 'entry_level',
-              'jt': 'fulltime', 'start': 0}
-    values_to_insert = webscrape(params=params)
-    insert_values(values_to_insert=values_to_insert)
+# if __name__ == '__main__':
+DB_NAME = 'scraping'
+cnx = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    passwd='22147565Ll^',
+    database='scraping',
+)
+cursor = cnx.cursor()
+reset_tables(cursor=cursor)
+cursor.close()
+cnx.close()
+#%%
+import time
+start = time.time()
+DB_NAME = 'scraping'
+cnx = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    passwd='22147565Ll^',
+    database='scraping',
+)
+params = {'q': 'data scientist', 'l': 'Houston, TX',
+          'explvl': 'entry_level',
+          'jt': 'fulltime', 'start': 0}
+locations = ['Houston, TX', 'Dallas, TX', 'Dallas-Fort Worth, TX', 'San Francisco, CA',
+'New York, NY', 'Philadelphia, PA', 'Pittsburgh, PA', 'Boston, MA', 'Washington, DC',
+]
+titles = ['data scientist', 'data analyst', 'machine learning engineer']
+
+for location in locations:
+    params['l'] = location
+    for title in titles:
+        params['q'] = title
+        for i in range(1, 5):
+            params['start'] = i
+            try:
+                values_to_insert = webscrape(params=params)
+            except Exception as e:
+                print(e)
+            insert_values(values_to_insert=values_to_insert, cnx=cnx)
+
+cursor.close()
+cnx.close()
+end = time.time()
+
+totalExecutionTime = end - start
+#%%
+    # values_to_insert = webscrape(params=params)
+    # insert_values(values_to_insert=values_to_insert)
