@@ -5,6 +5,8 @@ import sys
 from datetime import datetime
 from typing import List
 import argparse
+import time
+
 
 import mysql.connector
 from mysql.connector import errorcode
@@ -12,11 +14,20 @@ import pandas as pd
 
 from WebScrape import get_jobdes, getJobInfo, getJobPost
 
-# %% Create Tables
+# %% Create tables into database
+
+def create_database(cursor: mysql.connector.cursor.MySQLCursor):
+    try:
+        cursor.execute(f'CREATE DATABASE IF NOT EXISTS{DB_NAME}')
+        print(f'Successfully Created {DB_NAME}')
+    except mysql.connector.Error as err:
+        print(f'Failed to create database {DB_NAME}')
+        print('continue')
+
 TABLES = {}
 
 TABLES['job_hunting'] = f'''CREATE TABLE IF NOT EXISTS job_hunting
- (company_id SMALLINT UNSIGNED AUTO_INCREMENT,
+(company_id SMALLINT UNSIGNED AUTO_INCREMENT,
     job_title VARCHAR(100),
     company_name VARCHAR(100),
     createdDate DATE NOT NULL,
@@ -24,7 +35,7 @@ TABLES['job_hunting'] = f'''CREATE TABLE IF NOT EXISTS job_hunting
     state VARCHAR(100),
     url VARCHAR(400),
     CONSTRAINT pk_company PRIMARY KEY(company_id)
- );'''
+);'''
 TABLES['job_desc'] = f'''CREATE TABLE IF NOT EXISTS job_desc
 (company_id SMALLINT UNSIGNED NOT NULL,
     job_description LONGTEXT,
@@ -44,26 +55,6 @@ TABLES['job_status'] = f'''CREATE TABLE IF NOT EXISTS job_status(
     CONSTRAINT fk_comp_status_id FOREIGN KEY(company_id)
     REFERENCES job_hunting(company_id)
 );'''
-
-# %% Create tables into database
-
-# DB_NAME = 'scraping'
-# cnx = mysql.connector.connect(
-#     host='localhost',
-#     user='root',
-#     passwd='22147565Ll^',
-#     database='scraping',
-# )
-#
-# cursor = cnx.cursor()
-
-def create_database(cursor: mysql.connector.cursor.MySQLCursor):
-    try:
-        cursor.execute(f'CREATE DATABASE {DB_NAME}')
-    except mysql.connector.Error as err:
-        print(f'Failed to create database {DB_NAME}')
-        sys.exit(1)
-
 
 def create_table(cursor: mysql.connector.cursor.MySQLCursor):
     try:
@@ -113,22 +104,10 @@ def webscrape(params: dict) -> List[List[str]]:
     divs = getJobPost(queries=params)
     # * Get info from job_postings from Indeed.com
     job_titles, summary_links, company_names, locations = getJobInfo(divs=divs)
-    # TODO: Get job_descriptions later for NLP project
     summaries = get_jobdes(summary_links=summary_links)
     values_to_insert = [job_titles, summary_links, company_names, locations, summaries]
     return values_to_insert
 
-
-# values_to_insert = webscrape(params=params)
-# %% Insert Values
-
-# DB_NAME = 'scraping'
-# cnx = mysql.connector.connect(
-#     host='localhost',
-#     user='root',
-#     passwd='22147565Ll^',
-#     database='scraping',
-# )
 
 def insert_values(values_to_insert: List[List[str]], cnx: mysql.connector.connect):
     cursor = cnx.cursor()
@@ -162,77 +141,99 @@ def insert_values(values_to_insert: List[List[str]], cnx: mysql.connector.connec
 # insert_values(values_to_insert=values_to_insert)
 
 # %% Query values as dataframe
-
-cnx = mysql.connector.connect(user='root', password='22147565Ll^', host='127.0.0.1', database='scraping', port=3306)
+port_at_home = 8886
+port_at_work = 3306
+cnx = mysql.connector.connect(user='root', password='22147565Ll^', host='127.0.0.1', database='scraping', port=port_at_home)
 cursor = cnx.cursor()
-job_hunting = pd.read_sql('SELECT * FROM job_hunting', con=cnx)
-job_desc = pd.read_sql('SELECT * FROM job_desc', con=cnx)
-display(job_hunting.head())
-print('==='*30)
-display(job_desc.head())
-tables = list(cursor.execute('SHOW TABLES;'))
-cursor.close()
-cnx.close()
+job_hunting = pd.read_sql('SELECT * FROM job_hunting LIMIT 0,18446744073709551615', con=cnx)
+# job_desc = pd.read_sql('SELECT * FROM job_desc', con=cnx)
+# display(job_hunting.head())
+# print('==='*30)
+# display(job_desc.head())
+# tables = list(cursor.execute('SHOW TABLES;'))
+# cursor.close()
+# cnx.close()
 
 # %% Save values to a txt file for later test
-with open('values_to_insert.txt', 'wb') as file:
-    for item in values_to_insert:
-        file.write('%s\n' % item)
+# with open('values_to_insert.txt', 'wb') as file:
+#     for item in values_to_insert:
+#         file.write('%s\n' % item)
 
-values_to_insert = []
-with open('values_to_insert.txt', 'rb') as file:
-    for line in file:
-        currentPlace = line[:-1]
-        values_to_insert.append(currentPlace)
+# values_to_insert = []
+# with open('values_to_insert.txt', 'rb') as file:
+#     for line in file:
+#         currentPlace = line[:-1]
+#         values_to_insert.append(currentPlace)
+port_at_home = 8886
+port_at_work = 3306
+def main():
+    DB_NAME = 'scraping'
+    cnx = mysql.connector.connect(
+        host='localhost',
+        user='root',
+        passwd='22147565Ll^',
+        database=DB_NAME,
+        port = port_at_home
+    )
+    params = {'q': 'data scientist', 'l': 'Houston, TX',
+            'explvl': 'entry_level',
+            'jt': 'fulltime', 'start': 0}
+    locations = ['Houston, TX', 'Dallas, TX', 'Dallas-Fort Worth, TX', 'San Francisco, CA',
+    'New York, NY', 'Philadelphia, PA', 'Pittsburgh, PA', 'Boston, MA', 'Washington, DC',
+    ]
+    titles = ['data scientist', 'data analyst', 'machine learning engineer']
+
+    for location in locations:
+        params['l'] = location
+        for title in titles:
+            params['q'] = title
+            for i in range(1, 5):
+                params['start'] = i
+                try:
+                    values_to_insert = webscrape(params=params)
+                except Exception as e:
+                    print(e)
+                insert_values(values_to_insert=values_to_insert, cnx=cnx)
+
+    cursor.close()
+    cnx.close()
+
+def reset():
+    # DB_NAME = 'scraping'
+    cnx = mysql.connector.connect(
+        host='localhost',
+        user='root',
+        passwd='22147565Ll^',
+        database='scraping',
+        port=port_at_home
+    )
+    cursor = cnx.cursor()
+    reset_tables(cursor=cursor)
+    cursor.close()
+    cnx.close()
+
 
 #%%
-# if __name__ == '__main__':
-DB_NAME = 'scraping'
-cnx = mysql.connector.connect(
-    host='localhost',
-    user='root',
-    passwd='22147565Ll^',
-    database='scraping',
-)
-cursor = cnx.cursor()
-reset_tables(cursor=cursor)
-cursor.close()
-cnx.close()
-#%%
-import time
-start = time.time()
-DB_NAME = 'scraping'
-cnx = mysql.connector.connect(
-    host='localhost',
-    user='root',
-    passwd='22147565Ll^',
-    database='scraping',
-)
-params = {'q': 'data scientist', 'l': 'Houston, TX',
-          'explvl': 'entry_level',
-          'jt': 'fulltime', 'start': 0}
-locations = ['Houston, TX', 'Dallas, TX', 'Dallas-Fort Worth, TX', 'San Francisco, CA',
-'New York, NY', 'Philadelphia, PA', 'Pittsburgh, PA', 'Boston, MA', 'Washington, DC',
-]
-titles = ['data scientist', 'data analyst', 'machine learning engineer']
+if __name__ == '__main__':
+    start = time.time()
+    port_at_home = 8886
+    port_at_work = 3306
+    DB_NAME = 'scraping'
+    cnx = mysql.connector.connect(
+        host='localhost',
+        user='root',
+        passwd='22147565Ll^',
+        database='scraping',
+        port=port_at_home
+    )
+    cursor = cnx.cursor()
+    create_database(cursor=cursor)
+    create_table(cursor=cursor)
+    end = time.time()
+    main()
+    print('Total Execution time:\t', (end-start) / 60)
 
-for location in locations:
-    params['l'] = location
-    for title in titles:
-        params['q'] = title
-        for i in range(1, 5):
-            params['start'] = i
-            try:
-                values_to_insert = webscrape(params=params)
-            except Exception as e:
-                print(e)
-            insert_values(values_to_insert=values_to_insert, cnx=cnx)
 
-cursor.close()
-cnx.close()
-end = time.time()
 
-totalExecutionTime = end - start
-#%%
-    # values_to_insert = webscrape(params=params)
-    # insert_values(values_to_insert=values_to_insert)
+
+# %%
