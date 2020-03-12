@@ -89,6 +89,7 @@ if __name__ == '__main__':
               'explvl': 'entry_level',
               'jt': 'fulltime', 'start': 0}
     divs = getJobPost(queries=params)
+    print(divs)
 
 #%%
 # import numpy as np
