@@ -236,3 +236,23 @@ totalExecutionTime = end - start
 #%%
     # values_to_insert = webscrape(params=params)
     # insert_values(values_to_insert=values_to_insert)
+
+params = {'q': 'data scientist', 'l': 'New York, NY',
+          'explvl': 'entry_level',
+          'jt': 'fulltime', 'start': 0}
+all_data = []
+columns = ['job_titles', 'summary_links', 'company_names', 'locations', 'summaries']
+
+for i in range(0,6):
+    params[i] = i
+    values_to_insert = webscrape(params=params)
+    all_data.append(values_to_insert)
+
+#%%
+info = pd.DataFrame(columns=columns)
+for data in all_data:
+    df = pd.DataFrame(data, index = columns)
+    df = df.T
+    info = info.append(df)
+
+#%%
