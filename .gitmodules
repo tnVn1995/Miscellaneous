@@ -1,0 +1,3 @@
+[submodule "Data_Visualization/Plotly/candle_stick"]
+	path = Data_Visualization/Plotly/candle_stick
+	url = https://github.com/tung2921/plotly_candlestickplot
