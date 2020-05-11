@@ -18,4 +18,5 @@ This repo contains my projects using Python for visualization purposes
 	> conda env create -f environment.yml
 5. Type
 	> conda activate pythonwdash
+	
 	to activate the environment with installed dependencies
