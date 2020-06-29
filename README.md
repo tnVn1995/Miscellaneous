@@ -6,4 +6,8 @@
 
 2. IndeedWebscrape
 
-	Web scraping on Indeed website for job postings using BeautifulSoup and Mysql for storage
+	Web scraping on Indeed website for job postings using BeautifulSoup and Mysql for 
+	
+3. SQL-Python
+
+	Combining SQL and Python for analytics. Postgresql is used to interact with Python but Mysql is not different.
